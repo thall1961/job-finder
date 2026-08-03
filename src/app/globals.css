@@ -1,0 +1,265 @@
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --border: #e4e1db;
+  --text: #1f2328;
+  --muted: #6b7075;
+  --accent: #0d6e5f;
+  --accent-soft: #e3f0ed;
+  --danger: #b3403a;
+  --radius: 8px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181b;
+    --surface: #1e2126;
+    --border: #33373d;
+    --text: #e8e6e3;
+    --muted: #9aa0a6;
+    --accent: #3fae9b;
+    --accent-soft: #1e332f;
+    --danger: #e0716b;
+    --shadow: none;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.nav {
+  display: flex;
+  align-items: baseline;
+  gap: 1.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.nav .brand {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+.nav a {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.nav a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.nav .brand:hover {
+  color: var(--text);
+}
+
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 1rem;
+}
+h2 {
+  font-size: 1.1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.job-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.job-main {
+  flex: 1;
+  min-width: 0;
+}
+.job-title {
+  font-weight: 600;
+}
+.job-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+.job-reason {
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+  color: var(--muted);
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.score.high {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.score.mid {
+  background: #f5ecd9;
+  color: #8a6d1a;
+}
+.score.low {
+  background: #f0e4e3;
+  color: var(--danger);
+}
+.score.none {
+  background: transparent;
+  color: var(--muted);
+  border: 1px dashed var(--border);
+  font-weight: 400;
+}
+@media (prefers-color-scheme: dark) {
+  .score.mid {
+    background: #33301e;
+    color: #d4b45a;
+  }
+  .score.low {
+    background: #362323;
+    color: var(--danger);
+  }
+}
+
+button,
+.btn {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary,
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+select,
+input,
+textarea {
+  font: inherit;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.toolbar .right {
+  margin-left: auto;
+  display: flex;
+  gap: 0.6rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+.small {
+  font-size: 0.85rem;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.doc {
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.description {
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.field {
+  margin-bottom: 1.1rem;
+}
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+.field .hint {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.status-banner {
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+.status-banner.error {
+  background: #f0e4e3;
+  color: var(--danger);
+}
