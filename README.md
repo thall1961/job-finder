@@ -27,7 +27,8 @@ application pipeline, and drafts tailored resumes + cover letters per job.
 
 ## Usage
 
-- **Jobs** — "Fetch new jobs" pulls listings from Remotive, We Work Remotely, and the
+- **Jobs** — "Fetch new jobs" pulls listings from Remotive, We Work Remotely, RemoteOK,
+  Himalayas, Working Nomads, Jobicy, and the
   latest HN "Who is hiring" thread, filtered to engineering-management titles
   (keywords editable in Settings), dedupes them, and scores up to 12 new ones per run
   (0–100 fit score with rationale). "Score unscored" processes the backlog.
