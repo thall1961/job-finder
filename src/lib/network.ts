@@ -173,6 +173,13 @@ export function parseConnectionsCsv(text: string): ConnectionEntry[] {
   return entries;
 }
 
+/** Normalize "January 25, 2022" / "25 Jan 2022" style dates to yyyy-mm-dd. */
+function normDate(s: string | null): string | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+}
+
 export function importConnections(entries: ConnectionEntry[]): number {
   ensureConnectionsTable();
   const db = getDb();
@@ -189,7 +196,7 @@ export function importConnections(entries: ConnectionEntry[]): number {
   // The CSV export is authoritative: match existing paste-imported rows by name
   // so the same person doesn't appear twice with different headlines.
   const findByName = db.prepare(
-    "SELECT id FROM connections WHERE lower(name) = lower(?)"
+    "SELECT id, url, connected_on FROM connections WHERE lower(name) = lower(?)"
   );
   const enrich = db.prepare(
     `UPDATE connections SET
@@ -217,9 +224,25 @@ export function importConnections(entries: ConnectionEntry[]): number {
         connected_on: e.connected_on,
       };
       const key = e.name.toLowerCase();
-      const existing = findByName.all(e.name) as { id: number }[];
+      const existing = findByName.all(e.name) as {
+        id: number;
+        url: string | null;
+        connected_on: string | null;
+      }[];
       if (existing.length === 1 && (e.url || e.position) && !insertedThisRun.has(key)) {
         enrich.run({ ...params, id: existing[0].id });
+        continue;
+      }
+      // Several people share this name: a paste-imported row (no URL) whose
+      // connection date matches is the same person — enrich it instead of
+      // inserting a duplicate.
+      const date = normDate(e.connected_on);
+      const match =
+        existing.length > 1 && (e.url || e.position) && date && !insertedThisRun.has(key)
+          ? existing.find((r) => !r.url && normDate(r.connected_on) === date)
+          : undefined;
+      if (match) {
+        enrich.run({ ...params, id: match.id });
       } else {
         insert.run(params);
         insertedThisRun.add(key);
