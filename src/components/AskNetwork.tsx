@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Markdown from "./Markdown";
 
 const SUGGESTIONS = [
   "Who could give me a warm intro at companies in my pipeline?",
@@ -75,8 +76,8 @@ export default function AskNetwork() {
         </div>
       )}
       {answer && (
-        <div className="doc" style={{ marginTop: "0.75rem" }}>
-          {answer}
+        <div className="doc answer" style={{ marginTop: "0.75rem" }}>
+          <Markdown text={answer} />
         </div>
       )}
     </div>
