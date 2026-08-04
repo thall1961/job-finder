@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, getSetting, Job } from "./db";
+import { DEFAULT_PREFERENCES } from "./defaults";
 
 const MODEL = "claude-opus-5";
 const FALLBACKS = [{ model: "claude-opus-4-8" }];
@@ -21,7 +22,7 @@ function firstText(content: Array<{ type: string }>): string {
 export function getProfile(): { resume: string; preferences: string } | null {
   const resume = getSetting("resume");
   if (!resume || !resume.trim()) return null;
-  return { resume, preferences: getSetting("preferences") ?? "" };
+  return { resume, preferences: getSetting("preferences") ?? DEFAULT_PREFERENCES };
 }
 
 /* ---------------- Fit scoring ---------------- */

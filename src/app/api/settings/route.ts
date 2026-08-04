@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting, setSetting } from "@/lib/db";
 import { DEFAULT_KEYWORDS } from "@/lib/sources";
+import { DEFAULT_PREFERENCES } from "@/lib/defaults";
 
 export async function GET() {
   return NextResponse.json({
     resume: getSetting("resume") ?? "",
-    preferences: getSetting("preferences") ?? "",
+    preferences: getSetting("preferences") ?? DEFAULT_PREFERENCES,
     keywords: getSetting("keywords") ?? DEFAULT_KEYWORDS.join("\n"),
   });
 }

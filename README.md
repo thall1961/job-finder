@@ -37,6 +37,22 @@ application pipeline, and drafts tailored resumes + cover letters per job.
   letter" button that drafts both from your real resume and reports job-description
   keywords missing from it (useful for automated resume screeners).
 
+## Deployment (Fly.io)
+
+Deployed at https://job-finder-thall.fly.dev behind HTTP Basic auth. The SQLite
+database lives on a persistent volume mounted at `/app/data` (LAX region, single
+machine, auto-stops when idle).
+
+```sh
+fly deploy -a job-finder-thall --ha=false     # redeploy after changes
+fly secrets set -a job-finder-thall BASIC_AUTH_PASS=...   # rotate the password
+fly logs -a job-finder-thall                  # tail logs
+```
+
+Secrets in use: `ANTHROPIC_API_KEY`, `BASIC_AUTH_USER`, `BASIC_AUTH_PASS`. Auth is
+enforced by `src/proxy.ts` and only activates when the auth secrets are set, so local
+dev stays open.
+
 ## Notes
 
 - Data lives in `data/jobs.db` (SQLite, gitignored).
