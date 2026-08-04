@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getDb, Job } from "@/lib/db";
+import { matchConnectionsForCompany } from "@/lib/network";
 import RefreshButton from "@/components/RefreshButton";
 import StatusSelect from "@/components/StatusSelect";
 
@@ -84,23 +85,31 @@ export default async function JobsPage({
         </p>
       )}
 
-      {jobs.map((job) => (
-        <div className="card job-row" key={job.id}>
-          <ScoreBadge score={job.fit_score} />
-          <div className="job-main">
-            <div className="job-title">
-              <Link href={`/jobs/${job.id}`}>{job.title}</Link>
+      {jobs.map((job) => {
+        const connections = matchConnectionsForCompany(job.company);
+        return (
+          <div className="card job-row" key={job.id}>
+            <ScoreBadge score={job.fit_score} />
+            <div className="job-main">
+              <div className="job-title">
+                <Link href={`/jobs/${job.id}`}>{job.title}</Link>
+              </div>
+              <div className="job-meta">
+                {job.company} · {job.location ?? "location unknown"} ·{" "}
+                <span className="pill">{job.source}</span>
+                {job.salary ? ` · ${job.salary}` : ""}{" "}
+                {connections.length > 0 && (
+                  <span className="network-pill">
+                    🤝 {connections.length} connection{connections.length > 1 ? "s" : ""}
+                  </span>
+                )}
+              </div>
+              {job.fit_reason && <div className="job-reason">{job.fit_reason}</div>}
             </div>
-            <div className="job-meta">
-              {job.company} · {job.location ?? "location unknown"} ·{" "}
-              <span className="pill">{job.source}</span>
-              {job.salary ? ` · ${job.salary}` : ""}
-            </div>
-            {job.fit_reason && <div className="job-reason">{job.fit_reason}</div>}
+            <StatusSelect jobId={job.id} status={job.status} />
           </div>
-          <StatusSelect jobId={job.id} status={job.status} />
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

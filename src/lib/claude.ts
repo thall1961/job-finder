@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, getSetting, Job } from "./db";
 import { DEFAULT_PREFERENCES } from "./defaults";
+import { matchConnectionsForCompany } from "./network";
 
 const MODEL = "claude-opus-5";
 const FALLBACKS = [{ model: "claude-opus-4-8" }];
@@ -50,6 +51,15 @@ export async function scoreJob(
   resume: string,
   preferences: string
 ): Promise<{ score: number; reason: string } | null> {
+  const connections = matchConnectionsForCompany(job.company);
+  const networkNote =
+    connections.length > 0
+      ? `\nNetwork: the candidate has ${connections.length} LinkedIn connection(s) at or associated with this company (${connections
+          .slice(0, 3)
+          .map((c) => c.name)
+          .join(", ")}). Warm intros meaningfully raise the odds of a response — treat this as a significant plus.`
+      : "";
+
   const response = await getClient().beta.messages.create({
     model: MODEL,
     max_tokens: 8000,
@@ -64,7 +74,7 @@ export async function scoreJob(
     messages: [
       {
         role: "user",
-        content: `<resume>\n${resume.slice(0, 12000)}\n</resume>\n\n<preferences>\n${preferences || "Open to both remote and local/hybrid roles."}\n</preferences>\n\n<job source="${job.source}">\nTitle: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location ?? "unknown"}\nSalary: ${job.salary ?? "not listed"}\n\n${(job.description ?? "").slice(0, 6000)}\n</job>\n\nScore this job for the candidate.`,
+        content: `<resume>\n${resume.slice(0, 12000)}\n</resume>\n\n<preferences>\n${preferences || "Open to both remote and local/hybrid roles."}\n</preferences>\n\n<job source="${job.source}">\nTitle: ${job.title}\nCompany: ${job.company}\nLocation: ${job.location ?? "unknown"}\nSalary: ${job.salary ?? "not listed"}${networkNote}\n\n${(job.description ?? "").slice(0, 6000)}\n</job>\n\nScore this job for the candidate.`,
       },
     ],
   });

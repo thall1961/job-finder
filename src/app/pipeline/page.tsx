@@ -4,13 +4,13 @@ import StatusSelect from "@/components/StatusSelect";
 
 export const dynamic = "force-dynamic";
 
-const STAGES = ["saved", "applied", "interviewing", "offer", "rejected"] as const;
+const STAGES = ["saved", "approved", "applied", "interviewing", "offer", "rejected"] as const;
 
 export default async function PipelinePage() {
   const db = getDb();
   const jobs = db
     .prepare(
-      `SELECT * FROM jobs WHERE status IN ('saved','applied','interviewing','offer','rejected')
+      `SELECT * FROM jobs WHERE status IN ('saved','approved','applied','interviewing','offer','rejected')
        ORDER BY status_updated_at DESC`
     )
     .all() as Job[];

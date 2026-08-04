@@ -3,7 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const STATUSES = ["new", "saved", "applied", "interviewing", "offer", "rejected", "archived"];
+const STATUSES = [
+  "new",
+  "saved",
+  "approved",
+  "applied",
+  "interviewing",
+  "offer",
+  "rejected",
+  "archived",
+];
 
 export default function StatusSelect({
   jobId,

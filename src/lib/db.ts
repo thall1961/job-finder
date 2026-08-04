@@ -45,8 +45,18 @@ export function getDb(): Database.Database {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS applications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL REFERENCES jobs(id),
+      method TEXT NOT NULL,
+      ok INTEGER NOT NULL,
+      detail TEXT,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
     CREATE INDEX IF NOT EXISTS idx_jobs_score ON jobs(fit_score);
+    CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
   `);
   return db;
 }
@@ -81,12 +91,46 @@ export interface JobDocument {
 export const PIPELINE_STATUSES = [
   "new",
   "saved",
+  "approved",
   "applied",
   "interviewing",
   "offer",
   "rejected",
   "archived",
 ] as const;
+
+export interface ApplicationLog {
+  id: number;
+  job_id: number;
+  method: string;
+  ok: number;
+  detail: string | null;
+  created_at: string;
+}
+
+export interface Profile {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  linkedin: string;
+  website: string;
+  work_authorization: string;
+  sponsorship: string;
+  salary_expectation: string;
+  notice_period: string;
+  relocation: string;
+}
+
+export function getProfileSettings(): Profile | null {
+  const raw = getSetting("profile");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Profile;
+  } catch {
+    return null;
+  }
+}
 
 export function getSetting(key: string): string | null {
   const row = getDb()

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDb, Job, JobDocument } from "@/lib/db";
+import { getDb, Job, JobDocument, ApplicationLog } from "@/lib/db";
+import { matchConnectionsForCompany } from "@/lib/network";
 import StatusSelect from "@/components/StatusSelect";
 import TailorPanel from "@/components/TailorPanel";
+import DocActions from "@/components/DocActions";
+import ApplyButton from "@/components/ApplyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +57,45 @@ export default async function JobDetailPage({
       <div className="toolbar">
         <StatusSelect jobId={job.id} status={job.status} />
         <TailorPanel jobId={job.id} />
+        <ApplyButton jobId={job.id} />
       </div>
+
+      {(() => {
+        const connections = matchConnectionsForCompany(job.company);
+        if (connections.length === 0) return null;
+        return (
+          <div className="card">
+            <strong>🤝 Your network at {job.company}</strong>
+            {connections.map((c) => (
+              <p className="small" style={{ margin: "0.4rem 0 0" }} key={c.id}>
+                <strong>{c.name}</strong>
+                <span className="muted"> — {c.headline.slice(0, 120)}</span>
+              </p>
+            ))}
+            <p className="small muted" style={{ margin: "0.5rem 0 0" }}>
+              A warm intro beats a cold application — consider reaching out before applying.
+            </p>
+          </div>
+        );
+      })()}
+
+      {(() => {
+        const logs = getDb()
+          .prepare("SELECT * FROM applications WHERE job_id = ? ORDER BY created_at DESC")
+          .all(job.id) as ApplicationLog[];
+        if (logs.length === 0) return null;
+        return (
+          <div className="card">
+            <strong>Application history</strong>
+            {logs.map((l) => (
+              <p className="small" style={{ margin: "0.4rem 0 0" }} key={l.id}>
+                {l.ok ? "✓" : "✗"} {l.created_at.slice(0, 16).replace("T", " ")} · {l.method}
+                {l.detail ? ` — ${l.detail}` : ""}
+              </p>
+            ))}
+          </div>
+        );
+      })()}
 
       {job.fit_score !== null && (
         <div className="card">
@@ -76,14 +117,20 @@ export default async function JobDetailPage({
 
       {latestResume && (
         <>
-          <h2>Tailored resume</h2>
+          <div className="doc-header">
+            <h2>Tailored resume</h2>
+            <DocActions docId={latestResume.id} content={latestResume.content} />
+          </div>
           <div className="doc">{latestResume.content}</div>
         </>
       )}
 
       {latestCover && (
         <>
-          <h2>Cover letter draft</h2>
+          <div className="doc-header">
+            <h2>Cover letter draft</h2>
+            <DocActions docId={latestCover.id} content={latestCover.content} />
+          </div>
           <div className="doc">{latestCover.content}</div>
         </>
       )}
