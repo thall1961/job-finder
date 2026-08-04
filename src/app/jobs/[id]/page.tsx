@@ -68,8 +68,20 @@ export default async function JobDetailPage({
             <strong>🤝 Your network at {job.company}</strong>
             {connections.map((c) => (
               <p className="small" style={{ margin: "0.4rem 0 0" }} key={c.id}>
-                <strong>{c.name}</strong>
-                <span className="muted"> — {c.headline.slice(0, 120)}</span>
+                {c.url ? (
+                  <a href={c.url} target="_blank" rel="noreferrer">
+                    <strong>{c.name}</strong> ↗
+                  </a>
+                ) : (
+                  <strong>{c.name}</strong>
+                )}
+                <span className="muted">
+                  {" — "}
+                  {(c.position && c.company
+                    ? `${c.position}, ${c.company}`
+                    : c.headline
+                  ).slice(0, 120)}
+                </span>
               </p>
             ))}
             <p className="small muted" style={{ margin: "0.5rem 0 0" }}>

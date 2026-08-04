@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb, getSetting, Job } from "./db";
 import { DEFAULT_PREFERENCES } from "./defaults";
-import { matchConnectionsForCompany } from "./network";
+import { matchConnectionsForCompany, searchConnections } from "./network";
 
 const MODEL = "claude-opus-5";
 const FALLBACKS = [{ model: "claude-opus-4-8" }];
@@ -111,6 +111,60 @@ export async function scoreUnscoredJobs(limit = 12): Promise<number> {
     }
   }
   return scored;
+}
+
+/* ---------------- Network queries ---------------- */
+
+/** Answer a free-form question about the user's LinkedIn connections. */
+export async function queryNetwork(question: string): Promise<string> {
+  const connections = searchConnections();
+  if (connections.length === 0) {
+    throw new Error("No connections imported yet.");
+  }
+  const roster = connections
+    .map((c) => {
+      const role = c.position && c.company ? `${c.position} at ${c.company}` : c.headline;
+      const extras = [
+        role || null,
+        c.connected_on ? `connected ${c.connected_on}` : null,
+      ].filter(Boolean);
+      return `- ${c.name}${extras.length ? ` — ${extras.join("; ")}` : ""}`;
+    })
+    .join("\n");
+
+  const pipeline = getDb()
+    .prepare(
+      `SELECT DISTINCT company, status FROM jobs
+       WHERE status IN ('saved','approved','applied','interviewing','offer')
+       ORDER BY status_updated_at DESC LIMIT 50`
+    )
+    .all() as { company: string; status: string }[];
+  const pipelineNote = pipeline.length
+    ? `\n\n<pipeline_companies>\n${pipeline
+        .map((p) => `- ${p.company} (${p.status})`)
+        .join("\n")}\n</pipeline_companies>`
+    : "";
+
+  const response = await getClient().beta.messages.create({
+    model: MODEL,
+    max_tokens: 4000,
+    betas: BETAS,
+    fallbacks: FALLBACKS,
+    output_config: { effort: "medium" },
+    system:
+      "You help a job seeker mine their LinkedIn connections for warm introductions, referrals, and networking opportunities. Answer questions about their network using only the connection list provided. Be specific: name the relevant people and why each one fits the question. If nothing in the network matches, say so plainly. Answer in concise Markdown.",
+    messages: [
+      {
+        role: "user",
+        content: `<connections>\n${roster}\n</connections>${pipelineNote}\n\nQuestion: ${question}`,
+      },
+    ],
+  });
+
+  if (response.stop_reason === "refusal") {
+    throw new Error("The model declined this request.");
+  }
+  return firstText(response.content);
 }
 
 /* ---------------- Tailoring ---------------- */

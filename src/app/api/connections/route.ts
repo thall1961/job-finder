@@ -1,17 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseConnectionsText, importConnections, connectionCount } from "@/lib/network";
+import {
+  parseConnectionsText,
+  parseConnectionsCsv,
+  isConnectionsCsv,
+  importConnections,
+  connectionCount,
+} from "@/lib/network";
 
 export async function GET() {
   return NextResponse.json({ count: connectionCount() });
 }
 
-/** Import connections from a raw text paste of the LinkedIn connections page. */
+/**
+ * Import connections. Accepts either:
+ * - LinkedIn's official Connections.csv data export (preferred — includes
+ *   position, company, profile URL, and email), or
+ * - a raw text paste of the LinkedIn connections page.
+ */
 export async function POST(req: NextRequest) {
   const text = await req.text();
   if (!text.trim()) {
     return NextResponse.json({ error: "Empty body" }, { status: 400 });
   }
-  const entries = parseConnectionsText(text);
+  const csv = isConnectionsCsv(text);
+  const entries = csv ? parseConnectionsCsv(text) : parseConnectionsText(text);
+  if (entries.length === 0) {
+    return NextResponse.json(
+      { error: "Nothing recognized — paste the connections page or the Connections.csv export." },
+      { status: 400 }
+    );
+  }
   const added = importConnections(entries);
-  return NextResponse.json({ parsed: entries.length, added, total: connectionCount() });
+  return NextResponse.json({
+    format: csv ? "csv" : "paste",
+    parsed: entries.length,
+    added,
+    total: connectionCount(),
+  });
 }

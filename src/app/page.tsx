@@ -2,15 +2,9 @@ import Link from "next/link";
 import { getDb, Job } from "@/lib/db";
 import { matchConnectionsForCompany } from "@/lib/network";
 import RefreshButton from "@/components/RefreshButton";
-import StatusSelect from "@/components/StatusSelect";
+import JobList, { JobRow } from "@/components/JobList";
 
 export const dynamic = "force-dynamic";
-
-function ScoreBadge({ score }: { score: number | null }) {
-  if (score === null) return <span className="score none">–</span>;
-  const cls = score >= 75 ? "high" : score >= 50 ? "mid" : "low";
-  return <span className={`score ${cls}`}>{score}</span>;
-}
 
 export default async function JobsPage({
   searchParams,
@@ -43,6 +37,19 @@ export default async function JobsPage({
        LIMIT 200`
     )
     .all(...args) as Job[];
+
+  const rows: JobRow[] = jobs.map((job) => ({
+    id: job.id,
+    title: job.title,
+    company: job.company,
+    location: job.location,
+    salary: job.salary,
+    source: job.source,
+    fit_score: job.fit_score,
+    fit_reason: job.fit_reason,
+    status: job.status,
+    connections: matchConnectionsForCompany(job.company).length,
+  }));
 
   const sources = (
     db.prepare("SELECT DISTINCT source FROM jobs ORDER BY source").all() as {
@@ -85,31 +92,7 @@ export default async function JobsPage({
         </p>
       )}
 
-      {jobs.map((job) => {
-        const connections = matchConnectionsForCompany(job.company);
-        return (
-          <div className="card job-row" key={job.id}>
-            <ScoreBadge score={job.fit_score} />
-            <div className="job-main">
-              <div className="job-title">
-                <Link href={`/jobs/${job.id}`}>{job.title}</Link>
-              </div>
-              <div className="job-meta">
-                {job.company} · {job.location ?? "location unknown"} ·{" "}
-                <span className="pill">{job.source}</span>
-                {job.salary ? ` · ${job.salary}` : ""}{" "}
-                {connections.length > 0 && (
-                  <span className="network-pill">
-                    🤝 {connections.length} connection{connections.length > 1 ? "s" : ""}
-                  </span>
-                )}
-              </div>
-              {job.fit_reason && <div className="job-reason">{job.fit_reason}</div>}
-            </div>
-            <StatusSelect jobId={job.id} status={job.status} />
-          </div>
-        );
-      })}
+      <JobList jobs={rows} />
     </div>
   );
 }

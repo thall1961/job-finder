@@ -17,6 +17,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           </Link>
           <Link href="/">Jobs</Link>
           <Link href="/pipeline">Pipeline</Link>
+          <Link href="/connections">Network</Link>
           <Link href="/settings">Settings</Link>
         </nav>
         <main className="container">{children}</main>
