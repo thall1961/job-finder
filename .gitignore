@@ -42,3 +42,7 @@ next-env.d.ts
 
 # local database and secrets
 /data/
+
+# LinkedIn data exports (personal data)
+/Basic_LinkedInDataExport_*
+/connections.txt
