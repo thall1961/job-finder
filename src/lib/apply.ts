@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
-import { getDb, getProfileSettings, Job, JobDocument, Profile } from "./db";
-import { tailorForJob } from "./claude";
+import { getDb, getProfileSettings, Job, JobDocument, Profile, Question } from "./db";
+import { detectApplicationQuestions, tailorForJob } from "./claude";
 import { markdownToPdf } from "./pdf";
 import { notify } from "./notify";
 
@@ -8,7 +8,7 @@ export interface ApplyResult {
   jobId: number;
   title: string;
   company: string;
-  method: "email" | "manual";
+  method: "email" | "manual" | "questions";
   ok: boolean;
   detail: string;
 }
@@ -72,6 +72,71 @@ function alreadyLogged(jobId: number, method: string): boolean {
   );
 }
 
+/**
+ * Make sure the listing's application questions are answered before we send.
+ * Runs Claude detection once per job (marked by a 'questions_checked' log entry);
+ * questions the model can't answer are stored blank, pushed to ntfy, and block
+ * the application until the user fills them in on the job page.
+ * Returns the answered Q&A to include in the email, or an ApplyResult when blocked.
+ */
+async function resolveQuestions(
+  job: Job
+): Promise<{ answered: Question[] } | { blocked: ApplyResult }> {
+  const db = getDb();
+  const base = { jobId: job.id, title: job.title, company: job.company };
+
+  const pendingCount = () =>
+    (
+      db
+        .prepare("SELECT COUNT(*) AS n FROM questions WHERE job_id = ? AND answer IS NULL")
+        .get(job.id) as { n: number }
+    ).n;
+
+  if (!alreadyLogged(job.id, "questions_checked")) {
+    const saved = db
+      .prepare("SELECT question, answer FROM questions WHERE job_id = ? AND answer IS NOT NULL")
+      .all(job.id) as Array<{ question: string; answer: string }>;
+    const detected = await detectApplicationQuestions(job, saved);
+    const now = new Date().toISOString();
+    const insert = db.prepare(
+      "INSERT INTO questions (job_id, question, answer, source, created_at, answered_at) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const open: string[] = [];
+    for (const q of detected) {
+      if (q.needs_user || !q.answer.trim()) {
+        insert.run(job.id, q.question, null, null, now, null);
+        open.push(q.question);
+      } else {
+        insert.run(job.id, q.question, q.answer, "ai", now, now);
+      }
+    }
+    logApplication(job.id, "questions_checked", true, `${detected.length} question(s) found, ${open.length} need input`);
+    if (open.length > 0) {
+      await notify(
+        "Job Finder — needs your input",
+        `${job.company} — ${job.title.slice(0, 60)}\n\n${open.map((q) => `• ${q}`).join("\n")}\n\nAnswer on the job page, then hit Apply again.`,
+        { priority: "high", tags: "question" }
+      );
+    }
+  }
+
+  const pending = pendingCount();
+  if (pending > 0) {
+    return {
+      blocked: {
+        ...base,
+        method: "questions",
+        ok: false,
+        detail: `Waiting on your answer to ${pending} application question(s) — open the job page.`,
+      },
+    };
+  }
+  const answered = db
+    .prepare("SELECT * FROM questions WHERE job_id = ? AND answer IS NOT NULL ORDER BY id")
+    .all(job.id) as Question[];
+  return { answered };
+}
+
 export async function applyToJob(job: Job): Promise<ApplyResult> {
   const base = { jobId: job.id, title: job.title, company: job.company };
   const profile = getProfileSettings();
@@ -102,6 +167,9 @@ export async function applyToJob(job: Job): Promise<ApplyResult> {
     };
   }
 
+  const questions = await resolveQuestions(job);
+  if ("blocked" in questions) return questions.blocked;
+
   if (!smtpConfigured()) {
     return { ...base, method: "email", ok: false, detail: "SMTP not configured — set SMTP_USER/SMTP_PASS secrets." };
   }
@@ -115,7 +183,13 @@ export async function applyToJob(job: Job): Promise<ApplyResult> {
 
   const pdf = await markdownToPdf(resumeDoc.content);
   const safeCompany = job.company.replace(/[^a-zA-Z0-9-]+/g, "_").slice(0, 40);
-  const body = `${mdToPlainText(coverDoc.content).trim()}\n\n${signature(profile)}`;
+  const qaBlock =
+    questions.answered.length > 0
+      ? `\n\n---\n\nYour application questions:\n\n${questions.answered
+          .map((q) => `Q: ${q.question}\nA: ${q.answer}`)
+          .join("\n\n")}`
+      : "";
+  const body = `${mdToPlainText(coverDoc.content).trim()}${qaBlock}\n\n${signature(profile)}`;
 
   await transporter.sendMail({
     from: process.env.SMTP_FROM ?? process.env.SMTP_USER!,
@@ -142,9 +216,19 @@ export async function runApplyBatch(jobId?: number): Promise<ApplyResult[]> {
 
   const results: ApplyResult[] = [];
   for (const job of jobs) {
-    // In batch mode, skip jobs we've already flagged as manual so ntfy
-    // doesn't repeat the same alert every day.
-    if (!jobId && alreadyLogged(job.id, "manual_required")) continue;
+    // Jobs already flagged as manual-apply don't need re-processing — report
+    // them without re-running the pipeline (or re-logging).
+    if (!jobId && alreadyLogged(job.id, "manual_required")) {
+      results.push({
+        jobId: job.id,
+        title: job.title,
+        company: job.company,
+        method: "manual",
+        ok: false,
+        detail: `No email in listing — apply manually: ${job.url ?? "no URL"}`,
+      });
+      continue;
+    }
     try {
       results.push(await applyToJob(job));
     } catch (e) {
@@ -159,24 +243,6 @@ export async function runApplyBatch(jobId?: number): Promise<ApplyResult[]> {
         detail,
       });
     }
-  }
-
-  if (results.length > 0) {
-    const sent = results.filter((r) => r.ok);
-    const manual = results.filter((r) => !r.ok && r.method === "manual");
-    const failed = results.filter((r) => !r.ok && r.method === "email");
-    const lines: string[] = [];
-    if (sent.length)
-      lines.push(`Applied to ${sent.length}:`, ...sent.map((r) => `  ✓ ${r.company} — ${r.title.slice(0, 60)}`));
-    if (manual.length)
-      lines.push(`Needs manual apply (${manual.length}):`, ...manual.map((r) => `  → ${r.company}: ${r.detail}`));
-    if (failed.length)
-      lines.push(`Failed (${failed.length}):`, ...failed.map((r) => `  ✗ ${r.company}: ${r.detail}`));
-    await notify(
-      "Job Finder — apply run",
-      lines.join("\n"),
-      { priority: failed.length > 0 ? "high" : "default", tags: failed.length > 0 ? "warning" : "briefcase" }
-    );
   }
 
   return results;

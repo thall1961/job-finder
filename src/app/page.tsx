@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getDb, Job } from "@/lib/db";
 import { matchConnectionsForCompany } from "@/lib/network";
 import RefreshButton from "@/components/RefreshButton";
+import ApplyAllButton from "@/components/ApplyAllButton";
 import JobList, { JobRow } from "@/components/JobList";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,12 @@ export default async function JobsPage({
     .prepare("SELECT 1 FROM settings WHERE key = 'resume' AND length(value) > 0")
     .get();
 
+  const approvedCount = (
+    db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE status = 'approved'").get() as {
+      n: number;
+    }
+  ).n;
+
   return (
     <div>
       <h1>Jobs</h1>
@@ -72,6 +79,7 @@ export default async function JobsPage({
       )}
       <div className="toolbar">
         <RefreshButton />
+        <ApplyAllButton approvedCount={approvedCount} />
         <div className="right small">
           <Link href="/?minScore=75">75+</Link>
           <Link href="/?minScore=50">50+</Link>

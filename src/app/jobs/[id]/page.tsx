@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDb, Job, JobDocument, ApplicationLog } from "@/lib/db";
+import { getDb, Job, JobDocument, ApplicationLog, Question } from "@/lib/db";
 import { matchConnectionsForCompany } from "@/lib/network";
 import StatusSelect from "@/components/StatusSelect";
 import TailorPanel from "@/components/TailorPanel";
 import DocActions from "@/components/DocActions";
 import ApplyButton from "@/components/ApplyButton";
+import QuestionsPanel from "@/components/QuestionsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,24 @@ export default async function JobDetailPage({
               A warm intro beats a cold application — consider reaching out before applying.
             </p>
           </div>
+        );
+      })()}
+
+      {(() => {
+        const questions = db
+          .prepare("SELECT * FROM questions WHERE job_id = ? ORDER BY id")
+          .all(job.id) as Question[];
+        if (questions.length === 0) return null;
+        return (
+          <QuestionsPanel
+            jobId={job.id}
+            questions={questions.map((q) => ({
+              id: q.id,
+              question: q.question,
+              answer: q.answer,
+              source: q.source,
+            }))}
+          />
         );
       })()}
 

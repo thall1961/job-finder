@@ -38,21 +38,25 @@ application pipeline, and drafts tailored resumes + cover letters per job.
   letter" button that drafts both from your real resume and reports job-description
   keywords missing from it (useful for automated resume screeners).
 
-## Auto-apply pipeline
+## Apply pipeline
 
 1. Fill in the **Applicant profile** in Settings (contact info + screening answers).
 2. Mark jobs as **approved** (from the jobs list or detail page).
-3. A daily run (`POST /api/apply-run`, triggered by a Fly scheduled machine) processes
-   every approved job: it tailors documents if missing, extracts an application email
-   from the listing, and emails the cover letter + tailored resume PDF. Jobs without
-   an email (ATS forms) are flagged for manual apply — once, not repeatedly.
-4. Every run reports to **ntfy** (`NTFY_TOPIC` secret): what was sent, what needs
-   manual attention, what failed.
+3. Hit **Apply to N approved** on the Jobs page. For each approved job it tailors
+   documents if missing, extracts an application email from the listing, answers any
+   application questions in the listing from your profile/resume, and emails the
+   cover letter + tailored resume PDF. Jobs without an email (ATS forms) are flagged
+   for manual apply — once, not repeatedly. "Apply now" on a job's detail page runs
+   the same flow for a single job.
+4. If a listing asks a question the AI can't honestly answer from your materials
+   (personal anecdotes, opinions), the job is held, you get an **ntfy** push
+   (`NTFY_TOPIC` secret), and the job page shows the question with an answer box.
+   Save your answer and hit Apply again — the Q&A goes out with the email.
 
+There is no scheduled/automated run — applications only go out when you press Apply.
 Email sending requires SMTP secrets (`SMTP_USER`, `SMTP_PASS`; optional `SMTP_HOST`,
 `SMTP_PORT`, `SMTP_FROM` — defaults to Gmail over port 465). Until they're set, apply
-runs report "SMTP not configured" instead of sending. "Apply now" on a job's detail
-page runs the same flow for a single job immediately.
+runs report "SMTP not configured" instead of sending.
 
 ## Network mapper
 

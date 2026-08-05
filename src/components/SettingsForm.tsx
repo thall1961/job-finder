@@ -75,8 +75,8 @@ export default function SettingsForm() {
     <div>
       <h2>Applicant profile</h2>
       <p className="small muted">
-        Used to fill applications and sign emails. The screening answers are what the
-        auto-apply email and future form-filling will use.
+        Used to fill applications and sign emails. The screening answers feed the
+        apply emails and the AI&apos;s answers to application questions.
       </p>
       <div className="profile-grid">
         {PROFILE_FIELDS.map(({ key, label, hint }) => (

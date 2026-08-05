@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { getDb, getSetting, Job } from "./db";
+import { getDb, getProfileSettings, getSetting, Job } from "./db";
 import { DEFAULT_PREFERENCES } from "./defaults";
 import { matchConnectionsForCompany, searchConnections } from "./network";
 
@@ -165,6 +165,108 @@ export async function queryNetwork(question: string): Promise<string> {
     throw new Error("The model declined this request.");
   }
   return firstText(response.content);
+}
+
+/* ---------------- Application questions ---------------- */
+
+const QUESTIONS_SCHEMA = {
+  type: "object",
+  properties: {
+    questions: {
+      type: "array",
+      description:
+        "Questions or information requests the listing explicitly asks applicants to answer when applying (beyond sending a resume and cover letter). Empty array if the listing asks none.",
+      items: {
+        type: "object",
+        properties: {
+          question: {
+            type: "string",
+            description: "The question, quoted or lightly paraphrased from the listing.",
+          },
+          answer: {
+            type: "string",
+            description:
+              "The answer, written in the candidate's first-person voice, grounded strictly in the candidate's materials. Empty string when needs_user is true.",
+          },
+          needs_user: {
+            type: "boolean",
+            description:
+              "True when the candidate's materials do not contain the information needed to answer honestly — never guess personal facts, opinions, or preferences the candidate hasn't stated.",
+          },
+        },
+        required: ["question", "answer", "needs_user"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["questions"],
+  additionalProperties: false,
+} as const;
+
+export interface DetectedQuestion {
+  question: string;
+  answer: string;
+  needs_user: boolean;
+}
+
+/**
+ * Find application questions in a job listing and answer the ones the candidate's
+ * materials cover. Questions the model can't honestly answer come back with
+ * needs_user = true so the user can fill them in.
+ */
+export async function detectApplicationQuestions(
+  job: Job,
+  savedAnswers: Array<{ question: string; answer: string }>
+): Promise<DetectedQuestion[]> {
+  const profile = getProfile();
+  if (!profile) throw new Error("No resume saved. Add your resume in Settings first.");
+  const applicant = getProfileSettings();
+
+  const screening = applicant
+    ? [
+        applicant.work_authorization && `Work authorization: ${applicant.work_authorization}`,
+        applicant.sponsorship && `Needs sponsorship: ${applicant.sponsorship}`,
+        applicant.salary_expectation && `Salary expectation: ${applicant.salary_expectation}`,
+        applicant.notice_period && `Notice period: ${applicant.notice_period}`,
+        applicant.relocation && `Open to relocation: ${applicant.relocation}`,
+        applicant.location && `Location: ${applicant.location}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
+  const savedBlock = savedAnswers.length
+    ? `\n\n<saved_answers>\n${savedAnswers
+        .map((a) => `Q: ${a.question}\nA: ${a.answer}`)
+        .join("\n\n")}\n</saved_answers>`
+    : "";
+
+  const response = await getClient().beta.messages.create({
+    model: MODEL,
+    max_tokens: 8000,
+    betas: BETAS,
+    fallbacks: FALLBACKS,
+    output_config: {
+      effort: "low",
+      format: { type: "json_schema", schema: QUESTIONS_SCHEMA },
+    },
+    system:
+      "You screen job listings for explicit application questions — things like \"tell us about a project you're proud of\", \"include the word 'banana' in your subject line\", or \"answer: why do you want to work here?\" — that an applicant must address when applying by email. Ignore generic instructions satisfied by a resume and cover letter. Answer each question in the candidate's first-person voice using ONLY the candidate's materials; if the materials don't contain what's needed (personal anecdotes, opinions, facts they haven't stated), flag it for the candidate instead of guessing.",
+    messages: [
+      {
+        role: "user",
+        content: `<resume>\n${profile.resume.slice(0, 12000)}\n</resume>\n\n<preferences>\n${profile.preferences}\n</preferences>${
+          screening ? `\n\n<screening_answers>\n${screening}\n</screening_answers>` : ""
+        }${savedBlock}\n\n<job>\nTitle: ${job.title}\nCompany: ${job.company}\n\n${(job.description ?? "").slice(0, 12000)}\n</job>\n\nList the application questions in this listing and answer the ones the candidate's materials cover.`,
+      },
+    ],
+  });
+
+  if (response.stop_reason === "refusal") {
+    throw new Error("The model declined this request.");
+  }
+  const parsed = JSON.parse(firstText(response.content)) as { questions: DetectedQuestion[] };
+  return parsed.questions ?? [];
 }
 
 /* ---------------- Tailoring ---------------- */

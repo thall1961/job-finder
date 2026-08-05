@@ -54,9 +54,20 @@ export function getDb(): Database.Database {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL REFERENCES jobs(id),
+      question TEXT NOT NULL,
+      answer TEXT,
+      source TEXT,
+      created_at TEXT NOT NULL,
+      answered_at TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
     CREATE INDEX IF NOT EXISTS idx_jobs_score ON jobs(fit_score);
     CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
+    CREATE INDEX IF NOT EXISTS idx_questions_job ON questions(job_id);
   `);
   return db;
 }
@@ -98,6 +109,17 @@ export const PIPELINE_STATUSES = [
   "rejected",
   "archived",
 ] as const;
+
+/** An application question from a listing. `source` is 'ai' or 'user'; answer NULL = waiting on the user. */
+export interface Question {
+  id: number;
+  job_id: number;
+  question: string;
+  answer: string | null;
+  source: string | null;
+  created_at: string;
+  answered_at: string | null;
+}
 
 export interface ApplicationLog {
   id: number;
