@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getDb, Job, JobDocument, ApplicationLog, Question } from "@/lib/db";
+import { getDb, getPendingPlan, Job, JobDocument, ApplicationLog, PlanField, Question } from "@/lib/db";
 import { matchConnectionsForCompany } from "@/lib/network";
 import StatusSelect from "@/components/StatusSelect";
 import TailorPanel from "@/components/TailorPanel";
 import DocActions from "@/components/DocActions";
 import ApplyButton from "@/components/ApplyButton";
 import QuestionsPanel from "@/components/QuestionsPanel";
+import ApplyReviewPanel from "@/components/ApplyReviewPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,24 @@ export default async function JobDetailPage({
         <TailorPanel jobId={job.id} />
         <ApplyButton jobId={job.id} />
       </div>
+
+      {(() => {
+        const plan = getPendingPlan(job.id);
+        if (!plan) return null;
+        let fields: PlanField[] = [];
+        try {
+          fields = JSON.parse(plan.fields);
+        } catch {}
+        if (fields.length === 0) return null;
+        return (
+          <ApplyReviewPanel
+            planId={plan.id}
+            ats={plan.ats}
+            applyUrl={plan.apply_url}
+            fields={fields}
+          />
+        );
+      })()}
 
       {(() => {
         const connections = matchConnectionsForCompany(job.company);

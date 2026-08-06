@@ -54,6 +54,17 @@ export function getDb(): Database.Database {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS apply_plans (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id INTEGER NOT NULL REFERENCES jobs(id),
+      ats TEXT NOT NULL,
+      apply_url TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending_review',
+      fields TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS questions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       job_id INTEGER NOT NULL REFERENCES jobs(id),
@@ -64,6 +75,7 @@ export function getDb(): Database.Database {
       answered_at TEXT
     );
 
+    CREATE INDEX IF NOT EXISTS idx_apply_plans_job ON apply_plans(job_id);
     CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
     CREATE INDEX IF NOT EXISTS idx_jobs_score ON jobs(fit_score);
     CREATE INDEX IF NOT EXISTS idx_applications_job ON applications(job_id);
@@ -119,6 +131,55 @@ export interface Question {
   source: string | null;
   created_at: string;
   answered_at: string | null;
+}
+
+/**
+ * One field of a scraped ATS application form, plus the value we intend to
+ * submit. `needs_user` marks fields the AI couldn't honestly fill — the user
+ * supplies those in the review panel before submitting.
+ */
+export interface PlanField {
+  selector: string;
+  label: string;
+  type:
+    | "text"
+    | "email"
+    | "tel"
+    | "url"
+    | "number"
+    | "date"
+    | "textarea"
+    | "select"
+    | "combobox"
+    | "radio"
+    | "checkbox"
+    | "checkboxgroup"
+    | "file";
+  required: boolean;
+  options?: string[];
+  value: string;
+  source: "profile" | "ai" | "user" | "attachment" | null;
+  needs_user: boolean;
+}
+
+/** A prepared (scraped + AI-filled) ATS form application awaiting user review. */
+export interface ApplyPlan {
+  id: number;
+  job_id: number;
+  ats: string;
+  apply_url: string;
+  status: "pending_review" | "submitted";
+  fields: string; // JSON-serialized PlanField[]
+  created_at: string;
+  updated_at: string;
+}
+
+export function getPendingPlan(jobId: number): ApplyPlan | undefined {
+  return getDb()
+    .prepare(
+      "SELECT * FROM apply_plans WHERE job_id = ? AND status = 'pending_review' ORDER BY created_at DESC LIMIT 1"
+    )
+    .get(jobId) as ApplyPlan | undefined;
 }
 
 export interface ApplicationLog {

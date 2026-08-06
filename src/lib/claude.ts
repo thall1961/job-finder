@@ -269,6 +269,120 @@ export async function detectApplicationQuestions(
   return parsed.questions ?? [];
 }
 
+/* ---------------- Form field mapping ---------------- */
+
+const FORM_FILL_SCHEMA = {
+  type: "object",
+  properties: {
+    fields: {
+      type: "array",
+      description: "One entry per form field, in the same order as the input.",
+      items: {
+        type: "object",
+        properties: {
+          selector: {
+            type: "string",
+            description: "The field's selector, copied verbatim from the input.",
+          },
+          value: {
+            type: "string",
+            description:
+              "The value to enter. For select/radio/checkbox fields it must be exactly one of the listed options (or Yes/No for a checkbox). Use the literal token [[COVER_LETTER]] for a cover-letter field. Empty string when needs_user is true or the field should be left blank.",
+          },
+          needs_user: {
+            type: "boolean",
+            description:
+              "True when the candidate's materials don't contain what's needed to answer honestly — never guess personal facts, opinions, or preferences the candidate hasn't stated.",
+          },
+        },
+        required: ["selector", "value", "needs_user"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["fields"],
+  additionalProperties: false,
+} as const;
+
+export interface MappedField {
+  selector: string;
+  value: string;
+  needs_user: boolean;
+}
+
+interface FormFieldInput {
+  selector: string;
+  label: string;
+  type: string;
+  required: boolean;
+  options?: string[];
+}
+
+/**
+ * Fill an ATS application form: map each scraped field to a value drawn from
+ * the candidate's profile, resume, and saved answers. Fields the model can't
+ * honestly answer come back with needs_user = true for the review panel.
+ */
+export async function mapFormFields(
+  job: Job,
+  fields: FormFieldInput[],
+  coverLetter: string,
+  savedAnswers: Array<{ question: string; answer: string }>
+): Promise<MappedField[]> {
+  const profile = getProfile();
+  if (!profile) throw new Error("No resume saved. Add your resume in Settings first.");
+  const applicant = getProfileSettings();
+
+  const contact = applicant
+    ? Object.entries({
+        "Full name": applicant.name,
+        Email: applicant.email,
+        Phone: applicant.phone,
+        Location: applicant.location,
+        LinkedIn: applicant.linkedin,
+        Website: applicant.website,
+        "Work authorization": applicant.work_authorization,
+        "Needs sponsorship": applicant.sponsorship,
+        "Salary expectation": applicant.salary_expectation,
+        "Notice period": applicant.notice_period,
+        "Open to relocation": applicant.relocation,
+      })
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\n")
+    : "";
+
+  const savedBlock = savedAnswers.length
+    ? `\n\n<saved_answers>\n${savedAnswers
+        .map((a) => `Q: ${a.question}\nA: ${a.answer}`)
+        .join("\n\n")}\n</saved_answers>`
+    : "";
+
+  const response = await getClient().beta.messages.create({
+    model: MODEL,
+    max_tokens: 16000,
+    betas: BETAS,
+    fallbacks: FALLBACKS,
+    output_config: {
+      format: { type: "json_schema", schema: FORM_FILL_SCHEMA },
+    },
+    system:
+      "You fill job-application forms for a candidate. For each form field, supply the value to enter, drawn ONLY from the candidate's profile, resume, saved answers, and cover letter. Rules: (1) Contact fields come from the profile; split names into first/last as the form asks. (2) select/radio/checkbox values must match one of the field's listed options exactly, character for character; for a checkboxgroup field, give a comma-separated subset of the listed options. (3) For demographic self-identification fields (gender, race/ethnicity, veteran, disability), pick the option that declines to answer when one exists, otherwise set needs_user. (4) For 'How did you hear about us', say a job board — pick the closest option or name the source given. (5) For a cover-letter or 'additional information' field, output the token [[COVER_LETTER]]. (6) Open-ended questions: answer in the candidate's first-person voice from their materials; if the materials don't cover it (personal anecdotes, opinions, unstated facts), set needs_user instead of guessing. (7) Leave optional fields you can't fill blank with needs_user false; required fields you can't fill get needs_user true. (8) Never invent experience, dates, or personal details.",
+    messages: [
+      {
+        role: "user",
+        content: `<resume>\n${profile.resume.slice(0, 12000)}\n</resume>\n\n<profile>\n${contact}\n</profile>\n\n<preferences>\n${profile.preferences}\n</preferences>${savedBlock}\n\n<cover_letter>\n${coverLetter.slice(0, 4000)}\n</cover_letter>\n\n<job>\nTitle: ${job.title}\nCompany: ${job.company}\nSource job board: ${job.source}\n</job>\n\n<form_fields>\n${JSON.stringify(fields, null, 2)}\n</form_fields>\n\nFill the form.`,
+      },
+    ],
+  });
+
+  if (response.stop_reason === "refusal") {
+    throw new Error("The model declined this request.");
+  }
+  const parsed = JSON.parse(firstText(response.content)) as { fields: MappedField[] };
+  return parsed.fields ?? [];
+}
+
 /* ---------------- Tailoring ---------------- */
 
 const TAILOR_SCHEMA = {

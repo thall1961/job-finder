@@ -17,11 +17,13 @@ export default function ApplyAllButton({ approvedCount }: { approvedCount: numbe
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Apply run failed");
       const results: ApplyResult[] = data.results ?? [];
-      const sent = results.filter((r) => r.ok).length;
+      const review = results.filter((r) => r.method === "review").length;
+      const sent = results.filter((r) => r.ok && r.method !== "review").length;
       const questions = results.filter((r) => r.method === "questions").length;
       const manual = results.filter((r) => !r.ok && r.method === "manual").length;
       const failed = results.filter((r) => !r.ok && r.method === "email").length;
       const parts: string[] = [];
+      if (review) parts.push(`${review} form(s) ready for your review`);
       if (sent) parts.push(`applied to ${sent}`);
       if (questions) parts.push(`${questions} waiting on your answers`);
       if (manual) parts.push(`${manual} need manual apply`);

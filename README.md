@@ -40,23 +40,39 @@ application pipeline, and drafts tailored resumes + cover letters per job.
 
 ## Apply pipeline
 
+Applications go through the employer's official channel, in order of preference:
+the listing's **application form** (Greenhouse, Lever, Ashby, Workable), then
+**email** only when the listing explicitly asks for email applications, then a
+**manual** flag with the listing link as last resort.
+
 1. Fill in the **Applicant profile** in Settings (contact info + screening answers).
 2. Mark jobs as **approved** (from the jobs list or detail page).
-3. Hit **Apply to N approved** on the Jobs page. For each approved job it tailors
-   documents if missing, extracts an application email from the listing, answers any
-   application questions in the listing from your profile/resume, and emails the
-   cover letter + tailored resume PDF. Jobs without an email (ATS forms) are flagged
-   for manual apply — once, not repeatedly. "Apply now" on a job's detail page runs
-   the same flow for a single job.
-4. If a listing asks a question the AI can't honestly answer from your materials
-   (personal anecdotes, opinions), the job is held, you get an **ntfy** push
-   (`NTFY_TOPIC` secret), and the job page shows the question with an answer box.
-   Save your answer and hit Apply again — the Q&A goes out with the email.
+3. Hit **Apply to N approved** on the Jobs page (or "Apply now" on a job page).
+   For each job it tailors documents if missing, then finds the real application
+   page — from the listing URL, an ATS link in the description, or by following
+   the aggregator's Apply link in a headless browser. It scrapes the form and
+   fills every field from your profile/resume (select and demographic questions
+   pick real options; self-identification defaults to "decline to answer").
+4. **Nothing is submitted automatically.** The filled form is queued for review:
+   you get an ntfy push, and the job page shows every field with its drafted
+   answer. Fields the AI couldn't honestly answer are highlighted and block
+   submission until you fill them in. Hit **Submit application** and the browser
+   fills the real form, attaches the tailored resume PDF (and cover letter PDF
+   where the form takes one), submits, and records the confirmation. **Discard**
+   drops the plan; hitting Apply again re-scrapes from scratch.
+5. Email fallback: when a listing says "email your resume to…", the old flow
+   runs — application questions are AI-answered or held for you, then the cover
+   letter + resume PDF go out by email.
 
-There is no scheduled/automated run — applications only go out when you press Apply.
-Email sending requires SMTP secrets (`SMTP_USER`, `SMTP_PASS`; optional `SMTP_HOST`,
-`SMTP_PORT`, `SMTP_FROM` — defaults to Gmail over port 465). Until they're set, apply
-runs report "SMTP not configured" instead of sending.
+Notes: ATS discovery for a listing runs the browser only once (logged as
+`form_unavailable` when nothing is found); forms with a visible captcha and
+multi-step ATSs (Workday, Taleo) are flagged for manual apply. There is no
+scheduled/automated run — applications only move when you press Apply, and form
+submissions additionally require your review. Email sending requires SMTP
+secrets (`SMTP_USER`, `SMTP_PASS`; optional `SMTP_HOST`, `SMTP_PORT`,
+`SMTP_FROM` — defaults to Gmail over port 465). Headless Chromium comes from
+Playwright locally (`npx playwright install chromium` once) and from apt in the
+Docker image (`CHROMIUM_PATH`).
 
 ## Network mapper
 
