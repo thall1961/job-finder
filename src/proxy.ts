@@ -23,5 +23,7 @@ export default function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // /api/cron is excluded: it authenticates itself via the CRON_SECRET header
+  // so the external scheduler doesn't need the interactive basic-auth password.
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/cron).*)"],
 };

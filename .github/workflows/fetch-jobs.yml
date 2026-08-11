@@ -1,0 +1,17 @@
+name: Scheduled job fetch
+
+on:
+  schedule:
+    # 12:30 UTC ≈ 6:30–7:30am Central, before the workday starts.
+    - cron: "30 12 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger fetch → score → archive → notify pipeline
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 600 \
+            -H "X-Cron-Secret: ${{ secrets.JOB_FINDER_CRON_SECRET }}" \
+            -X POST "https://job-finder-thall.fly.dev/api/cron"

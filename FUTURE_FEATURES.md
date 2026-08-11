@@ -33,6 +33,18 @@ surface warm-introduction paths. Referrals convert far better than cold applicat
 Caveat: LinkedIn blocks scraping — likely needs a manual CSV export of connections
 (LinkedIn provides this via Settings → Data Privacy → Get a copy of your data).
 
+## 4. Follow-up calendar
+
+A per-application follow-up schedule derived from `status_updated_at`:
+
+- Auto-set a follow-up date when a job moves to `applied` (default: +14 days)
+- Surface due/overdue follow-ups in the UI (and in the daily digest, see #1)
+- One-click actions: "nudged recruiter" (resets the clock), "no response — archive"
+- Priority ordering by fit score, so the best applications get chased first
+
+First real use case (Aug 2026): CLEAR and Blockskye applications due for recruiter
+nudges ~Aug 24 if no response.
+
 ## Smaller enhancements to v1
 
 - **More sources**: HN "Who's Hiring" monthly threads, Remotive, WeWorkRemotely,
