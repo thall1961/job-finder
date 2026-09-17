@@ -105,5 +105,3 @@ dev stays open.
 - LinkedIn/Indeed block scraping, so they're deliberately not sources. See
   `FUTURE_FEATURES.md` for the roadmap (daily digest, interview prep, network mapper,
   more sources).
-- `scripts/seed-preferences.mjs` re-seeds the default preferences if you ever reset
-  the database.
